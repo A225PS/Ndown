@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "Ndown-WebSite/Ndown-main/Website/app.py", "use": "@vercel/python" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "Ndown-WebSite/Ndown-main/Website/app.py" }
+  ]
+}
