@@ -1,53 +1,49 @@
 # Written by: Mohamed El-Sayyad
-# Download videos from almost all platforms (server)
-# Date: 1447/10/29 (Shawwal)
+# Modified for Vercel compatibility
 
 import os
 import uuid
-import threading
 import time
 from flask import Flask, request, jsonify, send_from_directory, render_template
 import yt_dlp
 import shutil
+import traceback
 
 app = Flask(__name__, template_folder='templates')
-DOWNLOAD_FOLDER = "downloads"
-TMP_FOLDER = "tmp"
+
+# مهم: Vercel بيقبل الكتابة هنا بس
+DOWNLOAD_FOLDER = "/tmp/downloads"
+TMP_FOLDER = "/tmp/tmp"
+
 os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
 os.makedirs(TMP_FOLDER, exist_ok=True)
 
-# cleaner thread
-def cleaner(folder, max_age_minutes=30, interval=300):
-    while True:
-        now = time.time()
-        for fn in os.listdir(folder):
-            fp = os.path.join(folder, fn)
-            try:
-                if os.path.isfile(fp) and now - os.path.getmtime(fp) > max_age_minutes * 60:
-                    os.remove(fp)
-            except Exception:
-                pass
-        time.sleep(interval)
-
-threading.Thread(target=cleaner, args=(DOWNLOAD_FOLDER,30,300), daemon=True).start()
-threading.Thread(target=cleaner, args=(TMP_FOLDER,30,300), daemon=True).start()
 
 @app.route('/')
 def home():
     return render_template("index.html")
+
 
 @app.route('/formats', methods=['POST'])
 def formats():
     try:
         data = request.get_json() or {}
         url = data.get('url')
+
         if not url:
             return jsonify(success=False, error='URL required')
-        ydl_opts = {'quiet': True, 'skip_download': True}
+
+        ydl_opts = {
+            'quiet': True,
+            'skip_download': True
+        }
+
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
+
         formats = info.get('formats', []) or []
         out = []
+
         for f in formats:
             out.append({
                 'format_id': f.get('format_id'),
@@ -58,9 +54,16 @@ def formats():
                 'acodec': f.get('acodec'),
                 'tbr': f.get('tbr'),
             })
+
         return jsonify(success=True, formats=out)
+
     except Exception as e:
-        return jsonify(success=False, error=str(e))
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'trace': traceback.format_exc()
+        })
+
 
 @app.route('/download', methods=['POST'])
 def download():
@@ -75,6 +78,7 @@ def download():
         task_id = str(uuid.uuid4())
         tmp_dir = os.path.join(TMP_FOLDER, task_id)
         os.makedirs(tmp_dir, exist_ok=True)
+
         output_template = os.path.join(tmp_dir, '%(title)s.%(ext)s')
 
         ydl_opts = {
@@ -83,6 +87,7 @@ def download():
             'format': fmt,
             'noplaylist': True,
             'restrictfilenames': True,
+            'merge_output_format': 'mp4',  # يساعد لو في دمج فيديو + صوت
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -98,19 +103,39 @@ def download():
 
         dest_name = f"{task_id}_{os.path.basename(produced)}"
         dest_path = os.path.join(DOWNLOAD_FOLDER, dest_name)
+
         shutil.move(produced, dest_path)
 
-        return jsonify({'success': True, 'path': f"/file/{dest_name}"})
+        return jsonify({
+            'success': True,
+            'path': f"/file/{dest_name}"
+        })
+
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'trace': traceback.format_exc()
+        })
+
 
 @app.route('/file/<filename>')
 def serve_file(filename):
-    file_path = os.path.join(DOWNLOAD_FOLDER, filename)
-    if os.path.exists(file_path):
-        return send_from_directory(DOWNLOAD_FOLDER, filename, as_attachment=True)
-    else:
-        return "File not found", 404
+    try:
+        file_path = os.path.join(DOWNLOAD_FOLDER, filename)
 
-if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+        if os.path.exists(file_path):
+            return send_from_directory(DOWNLOAD_FOLDER, filename, as_attachment=True)
+        else:
+            return "File not found", 404
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'trace': traceback.format_exc()
+        })
+
+
+# مهم لـ Vercel
+app = app
