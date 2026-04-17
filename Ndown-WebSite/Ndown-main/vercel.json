@@ -4,6 +4,6 @@
     { "src": "Ndown-WebSite/Ndown-main/Website/app.py", "use": "@vercel/python" }
   ],
   "routes": [
-    { "src": "Ndown-WebSite/Ndown-main/Website/templates/(.*)", "dest": "Ndown-WebSite/Ndown-main/Website/app.py" }
+    { "src": "/(.*)", "dest": "Ndown-WebSite/Ndown-main/Website/app.py" }
   ]
 }
