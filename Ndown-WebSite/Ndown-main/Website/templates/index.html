@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ndown | الرئيسية</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body{background:#0f1620;color:#fff;font-family:'Cairo',sans-serif;padding:32px}
+    .glass{max-width:560px;margin:0 auto;background:rgba(255,255,255,0.04);border-radius:14px;padding:26px;backdrop-filter:blur(6px);box-shadow:0 8px 40px rgba(2,6,23,0.6)}
+    h1{font-size:20px;margin-bottom:6px}
+    .subtitle{color:#9aa3ad;font-size:13px;margin-bottom:18px}
+    .platform-icon{width:56px;height:56px;object-fit:contain;margin:6px;transition:transform .18s}
+    .platform-icon:hover{transform:translateY(-6px)}
+    input,select{background:#0b1116;border:1px solid rgba(255,255,255,0.03);color:#e7eef8;border-radius:10px;height:48px;padding:10px}
+    .btn-download{background:linear-gradient(90deg,#7c3aed,#06b6d4);border:0;height:48px;border-radius:10px;font-weight:700}
+    .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:#cbd5e1;border-radius:10px;height:48px;padding:8px 12px}
+    .muted{color:#9aa3ad;font-size:13px}
+    #status{margin-top:14px;min-height:36px}
+    .formats-table{max-height:260px;overflow:auto;margin-top:10px;border-radius:8px;padding:8px;background:rgba(255,255,255,0.02)}
+    .format-row{display:flex;justify-content:space-between;align-items:center;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.02);margin-bottom:8px}
+    .format-btn{background:transparent;border:1px solid rgba(255,255,255,0.06);color:#cbd5e1;border-radius:8px;padding:6px 10px}
+    footer{margin-top:20px;color:#95a0a7;font-size:13px;text-align:center}
+  </style>
+</head>
+<body class="text-center">
+  <div class="glass">
+    <div>
+      <h1>Ndown</h1>
+      <div class="subtitle">Download videos from many platforms — سريع وبسيط</div>
+    </div>
+
+    <form id="download-form" class="text-start">
+      <label class="form-label">رابط المحتوى</label>
+      <input id="url" type="text" class="form-control mb-2" placeholder="أدخل رابط الفيديو أو الصوت" required>
+
+      <div class="d-flex gap-2 mb-2">
+        <button type="button" id="show-formats" class="btn btn-ghost flex-grow-1">عرض الصيغ المتاحة</button>
+        <button type="submit" class="btn btn-download">تحميل الصيغة المحددة</button>
+      </div>
+
+      <input type="hidden" id="selected-format" value="">
+
+      <div id="status" class="mt-2"></div>
+
+      <div id="formats-container" class="formats-table d-none" aria-live="polite"></div>
+    </form>
+
+    <h4 class="mt-4 mb-2">المنصات المدعومة</h4>
+    <div class="d-flex flex-wrap justify-content-center mb-2">
+      <img src="https://img.icons8.com/color/96/youtube-play.png" class="platform-icon" title="يوتيوب"/>
+      <img src="https://img.icons8.com/color/96/facebook-new.png" class="platform-icon" title="فيسبوك"/>
+      <img src="https://img.icons8.com/color/96/instagram-new.png" class="platform-icon" title="إنستاجرام"/>
+      <img src="https://img.icons8.com/color/96/soundcloud.png" class="platform-icon" title="ساوند كلاود"/>
+      <img src="https://img.icons8.com/color/96/tiktok--v1.png" class="platform-icon" title="تيك توك"/>
+      <img src="https://img.icons8.com/color/96/vimeo.png" class="platform-icon" title="فيمو"/>
+      <img src="https://img.icons8.com/color/96/twitter--v1.png" class="platform-icon" title="X (تويتر)"/>
+      <img src="https://img.icons8.com/color/96/pinterest--v1.png" class="platform-icon" title="بنترست"/>
+    </div>
+
+    <footer>&copy; 2025 Developed by <strong>SayyadN</strong></footer>
+  </div>
+
+  <script>
+    const showFormatsBtn = document.getElementById('show-formats');
+    const formatsContainer = document.getElementById('formats-container');
+    const statusDiv = document.getElementById('status');
+    const form = document.getElementById('download-form');
+    const selectedFormat = document.getElementById('selected-format');
+    const spinnerClass = 'spinner-border text-light';
+
+    async function fetchFormats(url){
+      statusDiv.innerHTML = '';
+      formatsContainer.classList.add('d-none');
+      formatsContainer.innerHTML = '';
+      if(!url) { statusDiv.innerHTML = '<div class="text-danger">أدخل رابطاً أولاً</div>'; return; }
+      const spinner = document.createElement('div');
+      spinner.className = spinnerClass;
+      spinner.style.marginTop = '8px';
+      statusDiv.appendChild(spinner);
+      try {
+        const res = await fetch('/formats', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({url})
+        });
+        const j = await res.json();
+        statusDiv.innerHTML = '';
+        if(!j.success){ statusDiv.innerHTML = `<div class="text-danger">${j.error||'فشل جلب الصيغ'}</div>`; return; }
+        const fmts = j.formats || [];
+        if(fmts.length === 0){ statusDiv.innerHTML = '<div class="text-muted">لا توجد صيغ متاحة</div>'; return; }
+        formatsContainer.classList.remove('d-none');
+        fmts.forEach(f=>{
+          const row = document.createElement('div');
+          row.className = 'format-row';
+          const left = document.createElement('div');
+          left.innerHTML = `<strong>${f.format_id}</strong> — ${f.label||''} ${f.height? '• '+f.height+'p':''} <span class="muted"> ${f.ext||''} ${f.vcodec||''} ${f.acodec||''}</span>`;
+          const right = document.createElement('div');
+          const btn = document.createElement('button');
+          btn.className = 'format-btn';
+          btn.type = 'button';
+          btn.innerText = 'اختر';
+          btn.onclick = ()=> {
+            selectedFormat.value = f.format_id;
+            // visually mark selected
+            document.querySelectorAll('.format-row').forEach(r=> r.style.borderColor='rgba(255,255,255,0.02)');
+            row.style.borderColor = 'rgba(124,58,237,0.6)';
+            statusDiv.innerHTML = `<div class="text-success">تم اختيار الصيغة: ${f.format_id}</div>`;
+          };
+          right.appendChild(btn);
+          row.appendChild(left);
+          row.appendChild(right);
+          formatsContainer.appendChild(row);
+        });
+      } catch(err){
+        statusDiv.innerHTML = '<div class="text-danger">فشل الاتصال بالخادم</div>';
+      }
+    }
+
+    showFormatsBtn.onclick = () => {
+      const url = document.getElementById('url').value.trim();
+      fetchFormats(url);
+    };
+
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      statusDiv.innerHTML = '';
+      const url = document.getElementById('url').value.trim();
+      const fmt = selectedFormat.value || 'best';
+      if(!url){ statusDiv.innerHTML = '<div class="text-danger">أدخل رابطاً</div>'; return; }
+      statusDiv.innerHTML = '<div class="text-info">جارٍ معالجة الطلب...</div>';
+      try {
+        const res = await fetch('/download', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({url, format: fmt})
+        });
+        const j = await res.json();
+        if(j.success){
+          statusDiv.innerHTML = `<a href="${j.path}" class="btn btn-outline-light mt-2">تحميل الملف</a>`;
+        } else {
+          statusDiv.innerHTML = `<div class="text-danger">${j.error||'حدث خطأ'}</div>`;
+        }
+      } catch(err){
+        statusDiv.innerHTML = '<div class="text-danger">فشل الاتصال بالخادم</div>';
+      }
+    };
+  </script>
+</body>
+</html>
